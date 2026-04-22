@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="45" fill="#007AFF" stroke="#0056CC" stroke-width="3"/>
+  <circle cx="50" cy="25" r="10" fill="#FF3B30"/>
+  <circle cx="50" cy="50" r="10" fill="#FFCC00"/>
+  <circle cx="50" cy="75" r="10" fill="#34C759"/>
+  <text x="50" y="98" text-anchor="middle" font-family="Inter,sans-serif" font-size="6" fill="#007AFF" font-weight="700">YHQ</text>
+</svg>
