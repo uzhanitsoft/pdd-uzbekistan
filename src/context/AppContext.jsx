@@ -57,7 +57,7 @@ export function AppProvider({ children }) {
   }, [progress]);
 
   const toggleLang = useCallback(() => {
-    setLang(prev => prev === 'uz' ? 'ru' : 'uz');
+    setLang(prev => prev === 'uz' ? 'kr' : prev === 'kr' ? 'ru' : 'uz');
   }, []);
 
   const navigateTo = useCallback((newScreen) => {

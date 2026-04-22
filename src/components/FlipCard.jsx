@@ -85,7 +85,9 @@ export default function FlipCard() {
 
   if (!card) return null;
 
-  const questionText = lang === 'ru' ? card.question_ru : card.question_uz;
+  const questionText = lang === 'ru' ? card.question_ru : lang === 'kr' ? card.question_kr : card.question_uz;
+  const options = lang === 'ru' ? card.options_ru : lang === 'kr' ? card.options_kr : card.options_uz;
+  const explanationText = lang === 'ru' ? card.explanation_ru : lang === 'kr' ? card.explanation_kr : card.explanation_uz;
 
   return (
     <motion.div
@@ -196,12 +198,12 @@ export default function FlipCard() {
                   </div>
 
                   <p className="text-lg font-bold leading-relaxed flex-1">
-                    {card.options[card.correct_index]}
+                    {options[card.correct_index]}
                   </p>
 
                   <div className="mt-4 pt-3 border-t border-white/20">
                     <p className="text-sm text-white/80 leading-relaxed">
-                      {card.explanation}
+                      {explanationText}
                     </p>
                   </div>
                 </div>

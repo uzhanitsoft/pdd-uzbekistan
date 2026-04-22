@@ -13,18 +13,25 @@ export async function loadQuestions() {
     
     // Transform raw data into our format
     const questions = rawData.map((q, index) => {
-      const options = [q.javob_1, q.javob_2, q.javob_3, q.javob_4].filter(o => o && o.trim() !== '');
+      const options_uz = [q.javob_1, q.javob_2, q.javob_3, q.javob_4].filter(o => o && o.trim() !== '');
+      const options_kr = [q.javob_1_kril, q.javob_2_kril, q.javob_3_kril, q.javob_4_kril].filter(o => o && o.trim() !== '');
+      const options_ru = [q.javob_1_rus, q.javob_2_rus, q.javob_3_rus, q.javob_4_rus].filter(o => o && o.trim() !== '');
       const correctIndex = q.togri_javob_raqami - 1;
       
       return {
         id: q.id,
         bilet_number: q.bilet_id,
         question_uz: q.savol,
+        question_kr: q.savol_kril || q.savol,
         question_ru: q.savol_rus || q.savol,
         image: q.rasm && q.rasm.trim() !== '' ? q.rasm : null,
-        options: options,
-        correct_index: Math.min(correctIndex, options.length - 1),
-        explanation: `To'g'ri javob: ${q.togri_javob}`
+        options_uz: options_uz,
+        options_kr: options_kr.length > 0 ? options_kr : options_uz,
+        options_ru: options_ru.length > 0 ? options_ru : options_uz,
+        correct_index: Math.min(correctIndex, options_uz.length - 1),
+        explanation_uz: `To'g'ri javob: ${q.togri_javob || options_uz[correctIndex]}`,
+        explanation_kr: `Тўғри жавоб: ${q.togri_javob_kril || options_kr[correctIndex] || options_uz[correctIndex]}`,
+        explanation_ru: `Правильный ответ: ${q.togri_javob_rus || options_ru[correctIndex] || options_uz[correctIndex]}`
       };
     });
 

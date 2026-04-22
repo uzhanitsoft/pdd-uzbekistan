@@ -89,7 +89,9 @@ export default function QuestionScreen() {
   if (!question) return null;
 
   const progressPercent = ((currentQuestionIndex + 1) / totalQuestions) * 100;
-  const questionText = lang === 'ru' ? question.question_ru : question.question_uz;
+  const questionText = lang === 'ru' ? question.question_ru : lang === 'kr' ? question.question_kr : question.question_uz;
+  const options = lang === 'ru' ? question.options_ru : lang === 'kr' ? question.options_kr : question.options_uz;
+  const explanationText = lang === 'ru' ? question.explanation_ru : lang === 'kr' ? question.explanation_kr : question.explanation_uz;
 
   return (
     <motion.div
@@ -174,7 +176,7 @@ export default function QuestionScreen() {
 
             {/* Answer options */}
             <div className="space-y-2.5">
-              {question.options.map((option, index) => {
+              {options.map((option, index) => {
                 let optionStyle = 'bg-white border-transparent shadow-option';
                 let labelBg = 'bg-primary/10 text-primary';
                 let icon = null;
@@ -265,7 +267,7 @@ export default function QuestionScreen() {
                   <span className="text-xs font-bold text-primary">{t('tushuntirish')}</span>
                 </div>
                 <p className="text-sm text-text-primary leading-relaxed">
-                  {question.explanation}
+                  {explanationText}
                 </p>
               </motion.div>
             )}

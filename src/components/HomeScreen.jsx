@@ -54,7 +54,7 @@ export default function HomeScreen() {
           className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-bold tracking-wider z-10"
           id="lang-toggle"
         >
-          {lang === 'uz' ? 'RU' : 'UZ'}
+          {lang === 'uz' ? 'ЎЗ' : lang === 'kr' ? 'RU' : 'UZ'}
         </motion.button>
 
         <motion.div variants={container} initial="hidden" animate="show" className="relative z-10">
