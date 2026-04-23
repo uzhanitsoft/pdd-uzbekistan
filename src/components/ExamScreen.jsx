@@ -14,7 +14,13 @@ export default function ExamScreen() {
   const autoNextRef = useRef(null);
   const dragX = useMotionValue(0);
   const dragOpacity = useTransform(dragX, [-150, 0, 150], [0.5, 1, 0.5]);
+
   const exam = examState;
+  const qi = exam?.currentQuestion || 0;
+  const question = exam?.questions?.[qi] || null;
+  const total = exam?.questions?.length || 0;
+  const ans = question ? exam?.answers?.[question.id] : null;
+  const answeredCount = Object.keys(exam?.answers || {}).length;
 
   // Timer
   useEffect(() => {
@@ -30,42 +36,21 @@ export default function ExamScreen() {
     return () => clearInterval(examTimerRef.current);
   }, [exam?.finished]);
 
+  // Clear auto-next on question change
   useEffect(() => {
     return () => { if (autoNextRef.current) clearTimeout(autoNextRef.current); };
-  }, [exam?.currentQuestion]);
+  }, [qi]);
 
-  if (!exam || !exam.questions || exam.questions.length === 0) {
-    return <motion.div key="exam-empty" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />;
-  }
-
-  const qi = exam.currentQuestion || 0;
-  const question = exam.questions[qi];
-  if (!question) {
-    return <motion.div key="exam-no-q" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />;
-  }
-  const total = exam.questions.length;
-  const ans = exam.answers?.[question?.id];
-  const answeredCount = Object.keys(exam.answers || {}).length;
-
-  if (!question) return null;
-
-  const questionText = lang === 'ru' ? question.question_ru : lang === 'kr' ? question.question_kr : question.question_uz;
-  const options = lang === 'ru' ? question.options_ru : lang === 'kr' ? question.options_kr : question.options_uz;
-  const m = Math.floor((exam.timeRemaining || 0) / 60);
-  const s = (exam.timeRemaining || 0) % 60;
-  const timerClass = (exam.timeRemaining || 0) <= 60 ? 'danger' : (exam.timeRemaining || 0) <= 300 ? 'warning' : '';
-
-  const goToQ = (i) => {
+  const goToQ = useCallback((i) => {
     if (autoNextRef.current) clearTimeout(autoNextRef.current);
-    setExamState(prev => ({ ...prev, currentQuestion: i }));
-  };
+    setExamState(prev => prev ? { ...prev, currentQuestion: i } : prev);
+  }, [setExamState]);
 
-  const handleAnswer = (index) => {
-    if (ans || exam.finished) return;
+  const handleAnswer = useCallback((index) => {
+    if (!question || ans || exam?.finished) return;
     const isCorrect = index === question.correct_index;
     answerExamQuestion(question.id, index, isCorrect);
 
-    // To'g'ri javob → 1s keyin avtomatik keyingisiga
     if (isCorrect) {
       autoNextRef.current = setTimeout(() => {
         const newAnswered = answeredCount + 1;
@@ -76,8 +61,7 @@ export default function ExamScreen() {
         }
       }, 1000);
     }
-    // Noto'g'ri javob → foydalanuvchi o'zi tugma bosadi
-  };
+  }, [question, ans, exam?.finished, answeredCount, total, qi, answerExamQuestion, finishTimedExam, goToQ]);
 
   const handleDragEnd = useCallback((e, info) => {
     const threshold = 80;
@@ -86,7 +70,18 @@ export default function ExamScreen() {
     } else if ((info.offset.x > threshold || info.velocity.x > 300) && qi > 0) {
       goToQ(qi - 1);
     }
-  }, [qi, total]);
+  }, [qi, total, goToQ]);
+
+  // ====== EMPTY STATE ======
+  if (!exam || !exam.questions || !question) {
+    return <div />;
+  }
+
+  const questionText = lang === 'ru' ? question.question_ru : lang === 'kr' ? question.question_kr : question.question_uz;
+  const options = lang === 'ru' ? question.options_ru : lang === 'kr' ? question.options_kr : question.options_uz;
+  const m = Math.floor((exam.timeRemaining || 0) / 60);
+  const s = (exam.timeRemaining || 0) % 60;
+  const timerClass = (exam.timeRemaining || 0) <= 60 ? 'danger' : (exam.timeRemaining || 0) <= 300 ? 'warning' : '';
 
   const slideVariants = {
     enter: { x: 300, opacity: 0 },
@@ -213,7 +208,7 @@ export default function ExamScreen() {
             <p className="text-base font-bold leading-relaxed mb-5" style={{ color: 'var(--text-1)', lineHeight: 1.55 }}>{questionText}</p>
 
             <div className="space-y-2.5">
-              {options.map((option, index) => {
+              {(options || []).map((option, index) => {
                 let className = 'answer-option';
                 if (ans) {
                   className += ' answered';
@@ -281,7 +276,7 @@ export default function ExamScreen() {
         </div>
       </div>
 
-      {/* Chiqish modali — 2 variant: pauza yoki bekor qilish */}
+      {/* Chiqish modali */}
       {showConfirm && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="modal-backdrop">
           <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="modal-card">
@@ -289,19 +284,16 @@ export default function ExamScreen() {
             <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-1)' }}>{t('imtihonBekor')}</h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-2)' }}>{t('imtihonBekorConfirm')}</p>
             <div className="flex flex-col gap-2.5">
-              {/* Davom ettirish */}
               <button onClick={() => setShowConfirm(false)}
                 className="w-full py-3 rounded-2xl text-sm font-bold"
                 style={{ background: 'var(--primary)', color: '#fff' }}>
                 {t('davomEttirish')}
               </button>
-              {/* Pauza — keyinroq davom ettirish */}
               <button onClick={() => { setShowConfirm(false); pauseExam(); }}
                 className="w-full py-3 rounded-2xl text-sm font-medium"
                 style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-glow)' }}>
                 ⏸ {t('keyinrogDavom')}
               </button>
-              {/* Butunlay bekor qilish */}
               <button onClick={() => { setShowConfirm(false); cancelExam(); }}
                 className="w-full py-3 rounded-2xl text-sm font-medium"
                 style={{ background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)' }}>
