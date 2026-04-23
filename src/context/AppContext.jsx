@@ -336,15 +336,23 @@ export function AppProvider({ children }) {
 
   const getOverallStats = useCallback(() => {
     let totalAnswered = 0, totalCorrect = 0;
+    // Bilet javoblari
     for (const key of Object.keys(progress.biletAnswers || {})) {
       const ba = progress.biletAnswers[key];
       totalAnswered += Object.keys(ba).length;
       totalCorrect += Object.values(ba).filter(a => a.correct).length;
     }
+    // Imtihon tarixi
+    for (const exam of (progress.examHistory || [])) {
+      totalAnswered += (exam.correct || 0) + (exam.wrong || 0);
+      totalCorrect += (exam.correct || 0);
+    }
     return {
       totalQuestions: allQuestions.length, totalAnswered, totalCorrect, totalWrong: totalAnswered - totalCorrect,
       passedCount: Object.values(progress.biletResults || {}).filter(r => r.status === 'passed').length,
       failedCount: Object.values(progress.biletResults || {}).filter(r => r.status === 'failed').length,
+      examsTaken: (progress.examHistory || []).length,
+      examsPassed: (progress.examHistory || []).filter(e => e.pct >= 70).length,
     };
   }, [progress, allQuestions]);
 
