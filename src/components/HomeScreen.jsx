@@ -10,6 +10,7 @@ export default function HomeScreen() {
     t, navigateTo, startTimedExam, toggleLang, cycleTheme,
     lang, theme, loading, bilets, getOverallStats, getUnfinishedBilet, startExam,
     resetProgress, allQuestions, hasData, handleFileUpload, clearData,
+    examState, resumeExam,
   } = useApp();
 
   const [showReset, setShowReset] = useState(false);
@@ -23,6 +24,7 @@ export default function HomeScreen() {
   const unfinished = getUnfinishedBilet();
   const themeIcon = theme === 'dark' ? '🌙' : theme === 'auto' ? '🔄' : '☀️';
   const langLabel = lang === 'uz' ? 'ЎЗ' : lang === 'kr' ? 'RU' : 'UZ';
+  const hasActiveExam = examState && !examState.finished;
 
   const ringSize = 52; const ringR = 21; const ringC = 2 * Math.PI * ringR;
   const ringOffset = ringC - (accuracy / 100) * ringC;
@@ -146,7 +148,31 @@ export default function HomeScreen() {
         {/* ====== HAS DATA → MAIN UI ====== */}
         {hasData && (
           <>
-            {/* Continue banner */}
+            {/* Aktiv imtihon davom ettirish banneri */}
+            {hasActiveExam && (
+              <motion.div variants={fadeUp}>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={resumeExam}
+                  className="w-full rounded-2xl p-4 mb-3 flex items-center gap-4 text-left"
+                  style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 6px 20px rgba(245,158,11,0.35)' }}
+                  id="btn-resume-exam">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.2)' }}>
+                    <span className="text-2xl">⏸</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-sm" style={{ color: '#fff' }}>{t('imtihonRejimi')}</h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                      {Object.keys(examState.answers || {}).length}/{examState.questions?.length || 20} • {Math.floor((examState.timeRemaining || 0) / 60)}:{((examState.timeRemaining || 0) % 60).toString().padStart(2, '0')}
+                    </p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: 'rgba(255,255,255,0.25)', color: '#fff' }}>
+                    {t('davomEttirish')} →
+                  </div>
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* Continue bilet banner */}
             {unfinished && (
               <motion.div variants={fadeUp}>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => startExam(unfinished)}

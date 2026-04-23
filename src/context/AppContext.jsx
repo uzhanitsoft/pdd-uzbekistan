@@ -131,7 +131,10 @@ export function AppProvider({ children }) {
 
     // Restore active exam
     const prog = getStoredProgress();
-    if (prog.activeExam) { setExamState(prog.activeExam); setScreen('exam'); }
+    if (prog.activeExam && prog.activeExam.questions && prog.activeExam.questions.length > 0 && !prog.activeExam.finished) {
+      setExamState(prog.activeExam);
+      setScreen('exam');
+    }
   }, []);
 
   // ====== FILE UPLOAD ======
@@ -201,7 +204,13 @@ export function AppProvider({ children }) {
 
   // ====== NAVIGATION ======
   const navigateTo = useCallback((s) => setScreen(s), []);
-  const goHome = useCallback(() => { setScreen('home'); setSelectedBilet(null); setCurrentQuestionIndex(0); setAnswers([]); }, []);
+  const goHome = useCallback(() => {
+    setScreen('home');
+    setSelectedBilet(null);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    // Imtihonni tozalamaymiz — foydalanuvchi davom ettirishi mumkin
+  }, []);
 
   // ====== BILET EXAM ======
   const startExam = useCallback((biletNumber) => {
@@ -270,6 +279,21 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // Imtihonni pauza qilish (davom ettirish mumkin)
+  const pauseExam = useCallback(() => {
+    if (examTimerRef.current) clearInterval(examTimerRef.current);
+    // examState va activeExam saqlanadi — davom ettirish uchun
+    setScreen('home');
+  }, []);
+
+  // Imtihonni davom ettirish
+  const resumeExam = useCallback(() => {
+    if (examState && !examState.finished) {
+      setScreen('exam');
+    }
+  }, [examState]);
+
+  // Imtihonni BUTUNLAY bekor qilish
   const cancelExam = useCallback(() => {
     if (examTimerRef.current) clearInterval(examTimerRef.current);
     setExamState(null);
@@ -331,7 +355,8 @@ export function AppProvider({ children }) {
     practiceCards, practiceIndex, practiceKnown,
     t, toggleLang, cycleTheme,
     navigateTo, goHome, startExam, answerQuestion, finishExam,
-    startTimedExam, answerExamQuestion, finishTimedExam, cancelExam,
+    startTimedExam, answerExamQuestion, finishTimedExam,
+    pauseExam, resumeExam, cancelExam,
     startPractice, resetProgress, handleFileUpload, clearData,
     getBiletStatus, getUnfinishedBilet, getOverallStats,
     setCurrentQuestionIndex, setAnswers,

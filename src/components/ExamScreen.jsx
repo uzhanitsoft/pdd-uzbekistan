@@ -7,7 +7,7 @@ const labels = ['A', 'B', 'C', 'D'];
 export default function ExamScreen() {
   const {
     t, lang, examState, setExamState, examTimerRef,
-    answerExamQuestion, finishTimedExam, cancelExam, goHome,
+    answerExamQuestion, finishTimedExam, pauseExam, cancelExam, goHome,
   } = useApp();
 
   const [showConfirm, setShowConfirm] = useState(false);
@@ -30,7 +30,6 @@ export default function ExamScreen() {
     return () => clearInterval(examTimerRef.current);
   }, [exam?.finished]);
 
-  // Clear auto-next on question change
   useEffect(() => {
     return () => { if (autoNextRef.current) clearTimeout(autoNextRef.current); };
   }, [exam?.currentQuestion]);
@@ -61,7 +60,6 @@ export default function ExamScreen() {
     const isCorrect = index === question.correct_index;
     answerExamQuestion(question.id, index, isCorrect);
 
-    // Auto-advance after 1s (correct) or 1.5s (wrong)
     const delay = isCorrect ? 1000 : 1500;
     autoNextRef.current = setTimeout(() => {
       const newAnswered = answeredCount + 1;
@@ -73,7 +71,6 @@ export default function ExamScreen() {
     }, delay);
   };
 
-  // Swipe
   const handleDragEnd = useCallback((e, info) => {
     const threshold = 80;
     if ((info.offset.x < -threshold || info.velocity.x < -300) && qi < total - 1) {
@@ -89,7 +86,7 @@ export default function ExamScreen() {
     exit: { x: -300, opacity: 0 },
   };
 
-  // ====== RESULT SCREEN ======
+  // ====== NATIJA EKRANI ======
   if (exam.finished) {
     const correct = Object.values(exam.answers || {}).filter(a => a.correct).length;
     const wrong = answeredCount - correct;
@@ -136,15 +133,13 @@ export default function ExamScreen() {
         </div>
 
         <div className="px-4 py-4 safe-area-bottom" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)' }}>
-          <div className="flex gap-3">
-            <button onClick={goHome} className="nav-btn-primary" id="exam-home">{t('boshSahifa')}</button>
-          </div>
+          <button onClick={goHome} className="nav-btn-primary" id="exam-home">{t('boshSahifa')}</button>
         </div>
       </motion.div>
     );
   }
 
-  // ====== EXAM IN PROGRESS ======
+  // ====== IMTIHON JARAYONI ======
   return (
     <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -165,7 +160,6 @@ export default function ExamScreen() {
             {qi + 1}/{total}
           </div>
 
-          {/* BIG TIMER */}
           <div className={`timer-pill ${timerClass}`} style={{ fontSize: '16px', padding: '8px 16px' }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -174,12 +168,10 @@ export default function ExamScreen() {
           </div>
         </div>
 
-        {/* Progress */}
         <div className="progress-track">
           <motion.div className="progress-fill" animate={{ width: `${((qi + 1) / total) * 100}%` }} transition={{ duration: 0.3 }} />
         </div>
 
-        {/* Question dots */}
         <div className="q-dots-row mt-2">
           {exam.questions.map((q, i) => {
             const a = exam.answers?.[q.id];
@@ -192,18 +184,14 @@ export default function ExamScreen() {
         </div>
       </div>
 
-      {/* ====== QUESTION (swipeable) ====== */}
+      {/* Savol (swipeable) */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div key={qi}
             variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
+            initial="enter" animate="center" exit="exit"
             transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.15}
+            drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15}
             onDragEnd={handleDragEnd}
             style={{ opacity: dragOpacity }}
             className="h-full overflow-y-auto custom-scrollbar px-4 py-4 touch-pan-y">
@@ -250,16 +238,32 @@ export default function ExamScreen() {
         </AnimatePresence>
       </div>
 
-      {/* Cancel modal */}
+      {/* Chiqish modali — 2 variant: pauza yoki bekor qilish */}
       {showConfirm && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="modal-backdrop">
           <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="modal-card">
-            <div className="text-4xl mb-3">⚠️</div>
+            <div className="text-4xl mb-3">⏸️</div>
             <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-1)' }}>{t('imtihonBekor')}</h3>
             <p className="text-sm mb-5" style={{ color: 'var(--text-2)' }}>{t('imtihonBekorConfirm')}</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="nav-btn-secondary">{t('yoq')}</button>
-              <button onClick={() => { setShowConfirm(false); cancelExam(); }} className="nav-btn-primary" style={{ background: 'var(--red)' }}>{t('ha')}</button>
+            <div className="flex flex-col gap-2.5">
+              {/* Davom ettirish */}
+              <button onClick={() => setShowConfirm(false)}
+                className="w-full py-3 rounded-2xl text-sm font-bold"
+                style={{ background: 'var(--primary)', color: '#fff' }}>
+                {t('davomEttirish')}
+              </button>
+              {/* Pauza — keyinroq davom ettirish */}
+              <button onClick={() => { setShowConfirm(false); pauseExam(); }}
+                className="w-full py-3 rounded-2xl text-sm font-medium"
+                style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-glow)' }}>
+                ⏸ {t('keyinrogDavom')}
+              </button>
+              {/* Butunlay bekor qilish */}
+              <button onClick={() => { setShowConfirm(false); cancelExam(); }}
+                className="w-full py-3 rounded-2xl text-sm font-medium"
+                style={{ background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid var(--red-border)' }}>
+                ✕ {t('imtihonBekor')}
+              </button>
             </div>
           </motion.div>
         </motion.div>
