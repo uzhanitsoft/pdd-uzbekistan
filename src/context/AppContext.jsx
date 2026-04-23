@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { processQuestions, getStoredQuestions, storeQuestions, clearStoredQuestions } from '../data/questions';
+import { processQuestions, processNewFormatQuestions, isNewFormat, getStoredQuestions, storeQuestions, clearStoredQuestions } from '../data/questions';
 import { translations } from '../data/translations';
 
 const AppContext = createContext();
@@ -108,7 +108,12 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const stored = getStoredQuestions();
     if (stored) {
-      const bils = processQuestions(stored);
+      let bils;
+      if (isNewFormat(stored)) {
+        bils = processNewFormatQuestions(stored, lang);
+      } else {
+        bils = processQuestions(stored);
+      }
       setBilets(bils);
       setAllQuestions(bils.flatMap(b => b.questions));
       setHasData(true);
@@ -137,6 +142,16 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // ====== LANGUAGE CHANGE: reload questions for new format ======
+  useEffect(() => {
+    const stored = getStoredQuestions();
+    if (stored && isNewFormat(stored)) {
+      const bils = processNewFormatQuestions(stored, lang);
+      setBilets(bils);
+      setAllQuestions(bils.flatMap(b => b.questions));
+    }
+  }, [lang]);
+
   // ====== FILE UPLOAD ======
   const handleFileUpload = useCallback((file) => {
     return new Promise((resolve, reject) => {
@@ -144,16 +159,22 @@ export function AppProvider({ children }) {
       reader.onload = (e) => {
         try {
           const rawData = JSON.parse(e.target.result);
-          if (!Array.isArray(rawData) || rawData.length === 0) {
+          // Support both formats
+          const isValid = Array.isArray(rawData) ? rawData.length > 0 : isNewFormat(rawData);
+          if (!isValid) {
             reject(new Error('Invalid data format'));
             return;
           }
           storeQuestions(rawData);
-          const bils = processQuestions(rawData);
+          let bils;
+          if (isNewFormat(rawData)) {
+            bils = processNewFormatQuestions(rawData, lang);
+          } else {
+            bils = processQuestions(rawData);
+          }
           setBilets(bils);
           setAllQuestions(bils.flatMap(b => b.questions));
           setHasData(true);
-          // Reset progress for new data
           const fresh = defaultProgress();
           setProgress(fresh);
           saveProgressLocal(fresh);
@@ -165,7 +186,7 @@ export function AppProvider({ children }) {
       reader.onerror = () => reject(new Error('File read error'));
       reader.readAsText(file);
     });
-  }, []);
+  }, [lang]);
 
   const clearData = useCallback(() => {
     clearStoredQuestions();

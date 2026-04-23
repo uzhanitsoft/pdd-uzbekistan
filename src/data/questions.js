@@ -1,6 +1,8 @@
 // Question loader & normalizer
-// Supports both the full 3-language format (pdd_savollar_barchasi.json)
-// and the simple format (savol, javob_1..4, togri_javob_raqami)
+// Supports 3 formats:
+//   1. Old flat array: [ {savol, savol_kril, savol_rus, javob_1, javob_1_kril, ...} ]
+//   2. New language-keyed: { uzb: [...], kril: [...], rus: [...] }
+//   3. Simple: [ {savol, javob_1..4, togri_javob_raqami} ]
 
 const QUESTIONS_PER_BILET = 20;
 const DB_KEY = 'pdd_questions_db';
@@ -11,6 +13,9 @@ export function getStoredQuestions() {
     const stored = localStorage.getItem(DB_KEY);
     if (stored) {
       const data = JSON.parse(stored);
+      // New format: { uzb: [...], kril: [...], rus: [...] }
+      if (data && !Array.isArray(data) && (data.uzb || data.kril || data.rus)) return data;
+      // Old format: flat array
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (e) { console.error('Restore questions fail:', e); }
@@ -29,21 +34,37 @@ export function clearStoredQuestions() {
   localStorage.removeItem(DB_KEY);
 }
 
-// Normalize any raw question format into our standard format
-function normalizeQuestion(q, index) {
-  // Handle answers - filter out empty ones
+// Normalize a single question (language-specific)
+function normalizeSimpleQuestion(q, index) {
+  const opts = [
+    q.javob_1 || '', q.javob_2 || '', q.javob_3 || '', q.javob_4 || ''
+  ].filter(o => o && o.trim() !== '');
+
+  const correctIndex = (q.togri_javob_raqami || 1) - 1;
+
+  return {
+    id: q.id || index + 1,
+    bilet_number: q.bilet_id || Math.floor(index / QUESTIONS_PER_BILET) + 1,
+    question: q.savol || '',
+    image: q.rasm && q.rasm.trim() !== '' ? q.rasm : null,
+    options: opts,
+    correct_index: Math.min(correctIndex, Math.max(opts.length - 1, 0)),
+    correct_text: q.togri_javob || opts[correctIndex] || '',
+  };
+}
+
+// Normalize old format (3 languages in one object)
+function normalizeOldQuestion(q, index) {
   const javob1 = q.javob_1 || q.answer_1 || '';
   const javob2 = q.javob_2 || q.answer_2 || '';
   const javob3 = q.javob_3 || q.answer_3 || '';
   const javob4 = q.javob_4 || q.answer_4 || '';
   const options_uz = [javob1, javob2, javob3, javob4].filter(o => o && o.trim() !== '');
 
-  // Cyrillic answers
   const options_kr = [
     q.javob_1_kril || '', q.javob_2_kril || '', q.javob_3_kril || '', q.javob_4_kril || ''
   ].filter(o => o && o.trim() !== '');
 
-  // Russian answers
   const options_ru = [
     q.javob_1_rus || '', q.javob_2_rus || '', q.javob_3_rus || '', q.javob_4_rus || ''
   ].filter(o => o && o.trim() !== '');
@@ -67,13 +88,67 @@ function normalizeQuestion(q, index) {
   };
 }
 
-// Process raw data into bilets
+// Check if data is new language-keyed format
+export function isNewFormat(data) {
+  return data && !Array.isArray(data) && (data.uzb || data.kril || data.rus);
+}
+
+// Process NEW format: { uzb: [...], kril: [...], rus: [...] }
+// Returns language-specific bilets based on selected lang
+export function processNewFormatQuestions(data, lang) {
+  const langKey = lang === 'uz' ? 'uzb' : lang === 'kr' ? 'kril' : 'rus';
+  const questions = data[langKey] || data.uzb || [];
+
+  if (!Array.isArray(questions) || questions.length === 0) return [];
+
+  const normalized = questions.map((q, i) => {
+    const simple = normalizeSimpleQuestion(q, i);
+    // Map to standard field names the UI expects
+    return {
+      ...simple,
+      question_uz: lang === 'uz' ? simple.question : '',
+      question_kr: lang === 'kr' ? simple.question : '',
+      question_ru: lang === 'ru' ? simple.question : '',
+      options_uz: lang === 'uz' ? simple.options : [],
+      options_kr: lang === 'kr' ? simple.options : [],
+      options_ru: lang === 'ru' ? simple.options : [],
+      explanation_uz: lang === 'uz' ? `To'g'ri javob: ${simple.correct_text}` : '',
+      explanation_kr: lang === 'kr' ? `Тўғри жавоб: ${simple.correct_text}` : '',
+      explanation_ru: lang === 'ru' ? `Правильный ответ: ${simple.correct_text}` : '',
+    };
+  });
+
+  const bilets = [];
+  for (let i = 0; i < normalized.length; i += QUESTIONS_PER_BILET) {
+    const biletQuestions = normalized.slice(i, i + QUESTIONS_PER_BILET);
+    if (biletQuestions.length > 0) {
+      const biletNumber = Math.floor(i / QUESTIONS_PER_BILET) + 1;
+      bilets.push({
+        number: biletNumber,
+        questions: biletQuestions.map((q, idx) => ({
+          ...q,
+          bilet_number: biletNumber,
+          questionNumber: idx + 1,
+        })),
+      });
+    }
+  }
+  return bilets;
+}
+
+// Process OLD format raw data into bilets (backward compatible)
 export function processQuestions(rawData) {
+  if (!rawData) return [];
+
+  // New format detection
+  if (isNewFormat(rawData)) {
+    return processNewFormatQuestions(rawData, 'uz'); // default to UZB
+  }
+
   if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
-  const questions = rawData.map((q, i) => normalizeQuestion(q, i));
+  const questions = rawData.map((q, i) => normalizeOldQuestion(q, i));
 
-  // Split into bilets of 20
   const bilets = [];
   for (let i = 0; i < questions.length; i += QUESTIONS_PER_BILET) {
     const biletQuestions = questions.slice(i, i + QUESTIONS_PER_BILET);
