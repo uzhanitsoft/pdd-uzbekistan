@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 
 const labels = ['A', 'B', 'C', 'D'];
@@ -11,6 +11,9 @@ export default function ExamScreen() {
   } = useApp();
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const autoNextRef = useRef(null);
+  const dragX = useMotionValue(0);
+  const dragOpacity = useTransform(dragX, [-150, 0, 150], [0.5, 1, 0.5]);
   const exam = examState;
 
   // Timer
@@ -26,6 +29,11 @@ export default function ExamScreen() {
     }, 1000);
     return () => clearInterval(examTimerRef.current);
   }, [exam?.finished]);
+
+  // Clear auto-next on question change
+  useEffect(() => {
+    return () => { if (autoNextRef.current) clearTimeout(autoNextRef.current); };
+  }, [exam?.currentQuestion]);
 
   if (!exam || !exam.questions) return null;
 
@@ -43,11 +51,42 @@ export default function ExamScreen() {
   const s = (exam.timeRemaining || 0) % 60;
   const timerClass = (exam.timeRemaining || 0) <= 60 ? 'danger' : (exam.timeRemaining || 0) <= 300 ? 'warning' : '';
 
-  const goToQ = (i) => setExamState(prev => ({ ...prev, currentQuestion: i }));
+  const goToQ = (i) => {
+    if (autoNextRef.current) clearTimeout(autoNextRef.current);
+    setExamState(prev => ({ ...prev, currentQuestion: i }));
+  };
 
   const handleAnswer = (index) => {
     if (ans || exam.finished) return;
-    answerExamQuestion(question.id, index, index === question.correct_index);
+    const isCorrect = index === question.correct_index;
+    answerExamQuestion(question.id, index, isCorrect);
+
+    // Auto-advance after 1s (correct) or 1.5s (wrong)
+    const delay = isCorrect ? 1000 : 1500;
+    autoNextRef.current = setTimeout(() => {
+      const newAnswered = answeredCount + 1;
+      if (newAnswered >= total) {
+        finishTimedExam(false);
+      } else if (qi < total - 1) {
+        goToQ(qi + 1);
+      }
+    }, delay);
+  };
+
+  // Swipe
+  const handleDragEnd = useCallback((e, info) => {
+    const threshold = 80;
+    if ((info.offset.x < -threshold || info.velocity.x < -300) && qi < total - 1) {
+      goToQ(qi + 1);
+    } else if ((info.offset.x > threshold || info.velocity.x > 300) && qi > 0) {
+      goToQ(qi - 1);
+    }
+  }, [qi, total]);
+
+  const slideVariants = {
+    enter: { x: 300, opacity: 0 },
+    center: { x: 0, opacity: 1 },
+    exit: { x: -300, opacity: 0 },
   };
 
   // ====== RESULT SCREEN ======
@@ -63,7 +102,6 @@ export default function ExamScreen() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
         <div className="pt-12 pb-8 px-5 text-center"
           style={{ background: passed ? 'linear-gradient(135deg, #059669, #10B981, #34D399)' : 'linear-gradient(135deg, #DC2626, #EF4444, #F87171)' }}>
-          {/* Score ring */}
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }} className="inline-block mb-4">
             <div className="stat-ring">
               <svg width="140" height="140" viewBox="0 0 140 140">
@@ -80,7 +118,7 @@ export default function ExamScreen() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
             <h2 className="text-white text-2xl font-extrabold mb-1">{passed ? t('otdi') + ' ✓' : t('otmadi') + ' ✗'}</h2>
-            <p className="text-white/70 text-sm">{pct}% — {answeredCount}/{total} {t('savollarYechildi')}</p>
+            <p className="text-white/70 text-sm">{pct}%</p>
           </motion.div>
         </div>
 
@@ -99,8 +137,7 @@ export default function ExamScreen() {
 
         <div className="px-4 py-4 safe-area-bottom" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)' }}>
           <div className="flex gap-3">
-            <button onClick={() => goToQ(0)} className="nav-btn-primary" id="exam-review">{t('xatolarniKorish')}</button>
-            <button onClick={goHome} className="nav-btn-secondary" id="exam-home">{t('boshSahifa')}</button>
+            <button onClick={goHome} className="nav-btn-primary" id="exam-home">{t('boshSahifa')}</button>
           </div>
         </div>
       </motion.div>
@@ -113,7 +150,7 @@ export default function ExamScreen() {
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
 
-      {/* ====== HEADER ====== */}
+      {/* Header */}
       <div className="px-4 pt-4 pb-3 safe-area-top" style={{ background: 'var(--card)', borderBottom: '1px solid var(--card-border)' }}>
         <div className="flex items-center justify-between mb-3">
           <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowConfirm(true)}
@@ -125,7 +162,7 @@ export default function ExamScreen() {
           </motion.button>
 
           <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>
-            {t('imtihon')} — {qi + 1}/{total}
+            {qi + 1}/{total}
           </div>
 
           {/* BIG TIMER */}
@@ -155,16 +192,30 @@ export default function ExamScreen() {
         </div>
       </div>
 
-      {/* ====== QUESTION ====== */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
+      {/* ====== QUESTION (swipeable) ====== */}
+      <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
-          <motion.div key={qi} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
+          <motion.div key={qi}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={handleDragEnd}
+            style={{ opacity: dragOpacity }}
+            className="h-full overflow-y-auto custom-scrollbar px-4 py-4 touch-pan-y">
+
             {question.image && (
               <div className="mb-4 rounded-2xl overflow-hidden" style={{ boxShadow: 'var(--shadow-md)' }}>
-                <img src={question.image} alt="" className="w-full h-auto object-cover" loading="eager" />
+                <img src={question.image} alt="" className="w-full h-auto object-cover" loading="eager" draggable={false} />
               </div>
             )}
+
             <p className="text-base font-bold leading-relaxed mb-5" style={{ color: 'var(--text-1)', lineHeight: 1.55 }}>{questionText}</p>
+
             <div className="space-y-2.5">
               {options.map((option, index) => {
                 let className = 'answer-option';
@@ -199,19 +250,7 @@ export default function ExamScreen() {
         </AnimatePresence>
       </div>
 
-      {/* ====== BOTTOM NAV ====== */}
-      <div className="px-4 py-4 safe-area-bottom" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)' }}>
-        <div className="flex gap-3">
-          <button onClick={() => qi > 0 && goToQ(qi - 1)} disabled={qi === 0} className="nav-btn-secondary">{t('oldingi')}</button>
-          {answeredCount >= total ? (
-            <button onClick={() => finishTimedExam(false)} className="nav-btn-primary" style={{ background: 'var(--green)' }}>🏁 {t('yakunlash')}</button>
-          ) : (
-            <button onClick={() => qi < total - 1 && goToQ(qi + 1)} disabled={qi >= total - 1} className="nav-btn-primary">{t('keyingi')}</button>
-          )}
-        </div>
-      </div>
-
-      {/* ====== CANCEL MODAL ====== */}
+      {/* Cancel modal */}
       {showConfirm && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="modal-backdrop">
           <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="modal-card">

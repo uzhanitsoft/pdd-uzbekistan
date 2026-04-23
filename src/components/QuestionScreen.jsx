@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 
 const labels = ['A', 'B', 'C', 'D'];
@@ -12,10 +12,9 @@ export default function QuestionScreen() {
   } = useApp();
 
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [timerActive, setTimerActive] = useState(true);
-  const timerRef = useRef(null);
+  const autoNextRef = useRef(null);
+  const dragX = useMotionValue(0);
+  const dragOpacity = useTransform(dragX, [-150, 0, 150], [0.5, 1, 0.5]);
 
   const bilet = bilets.find(b => b.number === selectedBilet);
   const questions = bilet ? bilet.questions : [];
@@ -26,55 +25,48 @@ export default function QuestionScreen() {
 
   useEffect(() => {
     setSelectedAnswer(null);
-    setShowExplanation(false);
-    setTimeLeft(20);
-    setTimerActive(true);
+    if (autoNextRef.current) clearTimeout(autoNextRef.current);
+    return () => { if (autoNextRef.current) clearTimeout(autoNextRef.current); };
   }, [currentQuestionIndex]);
-
-  useEffect(() => {
-    if (!timerActive || !question) return;
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          setTimerActive(false);
-          setSelectedAnswer(-1);
-          setShowExplanation(true);
-          answerQuestion(question.id, -1, false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [timerActive, question, answerQuestion]);
 
   const handleAnswer = useCallback((index) => {
     if (alreadyAnswered) return;
-    clearInterval(timerRef.current);
-    setTimerActive(false);
     setSelectedAnswer(index);
     const isCorrect = index === question.correct_index;
     answerQuestion(question.id, index, isCorrect);
-    setShowExplanation(true);
-  }, [alreadyAnswered, question, answerQuestion]);
 
-  const handleNext = useCallback(() => {
-    if (isLastQuestion) {
-      finishExam();
-    } else {
+    const delay = isCorrect ? 1000 : 1500;
+    autoNextRef.current = setTimeout(() => {
+      if (!isLastQuestion) {
+        setCurrentQuestionIndex(prev => prev + 1);
+      } else {
+        finishExam();
+      }
+    }, delay);
+  }, [alreadyAnswered, question, answerQuestion, isLastQuestion, finishExam, setCurrentQuestionIndex]);
+
+  const handleDragEnd = useCallback((e, info) => {
+    const threshold = 80;
+    if ((info.offset.x < -threshold || info.velocity.x < -300) && !isLastQuestion && alreadyAnswered) {
+      if (autoNextRef.current) clearTimeout(autoNextRef.current);
       setCurrentQuestionIndex(prev => prev + 1);
+    } else if ((info.offset.x > threshold || info.velocity.x > 300) && currentQuestionIndex > 0) {
+      if (autoNextRef.current) clearTimeout(autoNextRef.current);
+      setCurrentQuestionIndex(prev => prev - 1);
     }
-  }, [isLastQuestion, finishExam, setCurrentQuestionIndex]);
+  }, [isLastQuestion, currentQuestionIndex, alreadyAnswered, setCurrentQuestionIndex]);
 
   if (!question) return null;
 
   const progressPercent = ((currentQuestionIndex + 1) / totalQuestions) * 100;
   const questionText = lang === 'ru' ? question.question_ru : lang === 'kr' ? question.question_kr : question.question_uz;
   const options = lang === 'ru' ? question.options_ru : lang === 'kr' ? question.options_kr : question.options_uz;
-  const explanationText = lang === 'ru' ? question.explanation_ru : lang === 'kr' ? question.explanation_kr : question.explanation_uz;
 
-  const timerClass = timeLeft <= 5 ? 'danger' : timeLeft <= 10 ? 'warning' : '';
+  const slideVariants = {
+    enter: { x: 300, opacity: 0 },
+    center: { x: 0, opacity: 1 },
+    exit: { x: -300, opacity: 0 },
+  };
 
   return (
     <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
@@ -96,12 +88,7 @@ export default function QuestionScreen() {
             {t('bilet')} {selectedBilet} — {currentQuestionIndex + 1}/{totalQuestions}
           </div>
 
-          <div className={`timer-pill ${timerClass}`}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {timeLeft}
-          </div>
+          <div className="w-9" />
         </div>
 
         {/* Progress bar */}
@@ -121,27 +108,28 @@ export default function QuestionScreen() {
         </div>
       </div>
 
-      {/* ====== QUESTION CONTENT ====== */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
+      {/* ====== QUESTION (swipeable) ====== */}
+      <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div key={currentQuestionIndex}
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.25 }}>
+            variants={slideVariants}
+            initial="enter" animate="center" exit="exit"
+            transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+            drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.15}
+            onDragEnd={handleDragEnd}
+            style={{ opacity: dragOpacity }}
+            className="h-full overflow-y-auto custom-scrollbar px-4 py-4 touch-pan-y">
 
-            {/* Image */}
             {question.image && (
-              <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 rounded-2xl overflow-hidden" style={{ boxShadow: 'var(--shadow-md)' }}>
-                <img src={question.image} alt="" className="w-full h-auto object-cover" loading="eager" />
-              </motion.div>
+              <div className="mb-4 rounded-2xl overflow-hidden" style={{ boxShadow: 'var(--shadow-md)' }}>
+                <img src={question.image} alt="" className="w-full h-auto object-cover" loading="eager" draggable={false} />
+              </div>
             )}
 
-            {/* Question text */}
             <p className="text-base font-bold leading-relaxed mb-5" style={{ color: 'var(--text-1)', lineHeight: 1.55 }}>
               {questionText}
             </p>
 
-            {/* ====== ANSWER OPTIONS ====== */}
             <div className="space-y-2.5">
               {options.map((option, index) => {
                 let className = 'answer-option';
@@ -166,7 +154,6 @@ export default function QuestionScreen() {
                     id={`option-${index}`}>
                     <div className="letter">{labels[index]}</div>
                     <span className="flex-1 text-sm font-medium" style={{ lineHeight: 1.45 }}>{option}</span>
-                    {/* Icons */}
                     {alreadyAnswered && index === question.correct_index && (
                       <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -181,43 +168,9 @@ export default function QuestionScreen() {
                 );
               })}
             </div>
-
-            {/* Timeout */}
-            {selectedAnswer === -1 && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-3 rounded-xl text-center text-sm font-bold"
-                style={{ background: 'var(--red-bg)', border: '1px solid var(--red-border)', color: 'var(--red)' }}>
-                ⏱ {t('vaqtTugadi')}
-              </motion.div>
-            )}
-
-            {/* Explanation */}
-            {showExplanation && (
-              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="mt-4 p-4 rounded-xl" style={{ background: 'var(--primary-light)', border: '1px solid var(--primary-glow)' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4" style={{ color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-xs font-bold" style={{ color: 'var(--primary)' }}>{t('tushuntirish')}</span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{explanationText}</p>
-              </motion.div>
-            )}
           </motion.div>
         </AnimatePresence>
       </div>
-
-      {/* ====== BOTTOM NAV ====== */}
-      {showExplanation && (
-        <motion.div initial={{ y: 80 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="px-4 py-4 safe-area-bottom" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)' }}>
-          <motion.button whileTap={{ scale: 0.97 }} onClick={handleNext}
-            className="nav-btn-primary w-full" id="btn-next">
-            {isLastQuestion ? t('yakunlash') : t('keyingi')}
-          </motion.button>
-        </motion.div>
-      )}
     </motion.div>
   );
 }
