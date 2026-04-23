@@ -296,9 +296,13 @@ export function AppProvider({ children }) {
   // Imtihonni BUTUNLAY bekor qilish
   const cancelExam = useCallback(() => {
     if (examTimerRef.current) clearInterval(examTimerRef.current);
-    setExamState(null);
-    setProgress(prev => ({ ...prev, activeExam: null }));
+    // Avval ekranni almashtiramiz, keyin state tozalaymiz
     setScreen('home');
+    // Keyingi renderda tozalaymiz
+    setTimeout(() => {
+      setExamState(null);
+      setProgress(prev => ({ ...prev, activeExam: null }));
+    }, 100);
   }, []);
 
   // ====== PRACTICE ======

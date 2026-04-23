@@ -34,10 +34,15 @@ export default function ExamScreen() {
     return () => { if (autoNextRef.current) clearTimeout(autoNextRef.current); };
   }, [exam?.currentQuestion]);
 
-  if (!exam || !exam.questions) return null;
+  if (!exam || !exam.questions || exam.questions.length === 0) {
+    return <motion.div key="exam-empty" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />;
+  }
 
   const qi = exam.currentQuestion || 0;
   const question = exam.questions[qi];
+  if (!question) {
+    return <motion.div key="exam-no-q" initial={{ opacity: 0 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} />;
+  }
   const total = exam.questions.length;
   const ans = exam.answers?.[question?.id];
   const answeredCount = Object.keys(exam.answers || {}).length;
