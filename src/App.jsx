@@ -5,6 +5,7 @@ import TicketGrid from './components/TicketGrid';
 import QuestionScreen from './components/QuestionScreen';
 import ResultScreen from './components/ResultScreen';
 import FlipCard from './components/FlipCard';
+import ExamScreen from './components/ExamScreen';
 
 function AppContent() {
   const { screen } = useApp();
@@ -17,6 +18,7 @@ function AppContent() {
         {screen === 'question' && <QuestionScreen key="question" />}
         {screen === 'result' && <ResultScreen key="result" />}
         {screen === 'practice' && <FlipCard key="practice" />}
+        {screen === 'exam' && <ExamScreen key="exam" />}
       </AnimatePresence>
     </div>
   );

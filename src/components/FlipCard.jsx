@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 
@@ -18,14 +18,11 @@ export default function FlipCard() {
   const isFinished = practiceIndex >= practiceCards.length;
   const knownCount = practiceKnown.filter(Boolean).length;
 
-  const handleFlip = useCallback(() => {
-    setIsFlipped(prev => !prev);
-  }, []);
+  const handleFlip = useCallback(() => setIsFlipped(prev => !prev), []);
 
   const handleAction = useCallback((known) => {
     setExitDirection(known ? 1 : -1);
     setPracticeKnown(prev => [...prev, known]);
-    
     setTimeout(() => {
       setIsFlipped(false);
       setExitDirection(0);
@@ -34,50 +31,35 @@ export default function FlipCard() {
   }, [setPracticeKnown, setPracticeIndex]);
 
   const handleDragEnd = useCallback((e, info) => {
-    if (info.offset.x > 100) {
-      handleAction(true);
-    } else if (info.offset.x < -100) {
-      handleAction(false);
-    }
+    if (info.offset.x > 100) handleAction(true);
+    else if (info.offset.x < -100) handleAction(false);
   }, [handleAction]);
 
   if (isFinished) {
     const total = practiceCards.length;
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="h-full bg-bg flex flex-col items-center justify-center px-6"
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-          className="bg-white rounded-card p-8 shadow-card text-center w-full max-w-sm"
-        >
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+        className="h-full flex flex-col items-center justify-center px-6" style={{ background: 'var(--bg)' }}>
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+          className="glass-card p-8 text-center w-full max-w-sm">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--primary-light)' }}>
+            <svg className="w-8 h-8" style={{ color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-xl font-extrabold text-text-primary mb-2">{t('mashqTugadi')}</h2>
+          <h2 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-1)' }}>{t('mashqTugadi')}</h2>
           <div className="flex justify-center gap-6 my-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-correct">{knownCount}</div>
-              <div className="text-xs text-text-secondary">{t('bilaman')}</div>
+              <div className="text-2xl font-bold" style={{ color: 'var(--green)' }}>{knownCount}</div>
+              <div className="text-xs" style={{ color: 'var(--text-2)' }}>{t('bilaman')}</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-wrong">{total - knownCount}</div>
-              <div className="text-xs text-text-secondary">{t('bilmayman')}</div>
+              <div className="text-2xl font-bold" style={{ color: 'var(--red)' }}>{total - knownCount}</div>
+              <div className="text-xs" style={{ color: 'var(--text-2)' }}>{t('bilmayman')}</div>
             </div>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={goHome}
-            className="w-full py-3 bg-primary text-white font-bold rounded-btn mt-4"
-          >
-            {t('boshSahifa')}
-          </motion.button>
+          <button onClick={goHome} className="nav-btn-primary w-full mt-4">{t('boshSahifa')}</button>
         </motion.div>
       </motion.div>
     );
@@ -90,49 +72,41 @@ export default function FlipCard() {
   const explanationText = lang === 'ru' ? card.explanation_ru : lang === 'kr' ? card.explanation_kr : card.explanation_uz;
 
   return (
-    <motion.div
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="h-full bg-bg flex flex-col overflow-hidden"
-    >
+    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+
       {/* Header */}
-      <div className="bg-white px-4 py-4 flex items-center justify-between shadow-sm safe-area-top">
-        <motion.button
-          whileTap={{ scale: 0.85 }}
-          onClick={goHome}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50"
-        >
-          <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <div className="px-4 py-4 flex items-center justify-between safe-area-top"
+        style={{ background: 'var(--card)', borderBottom: '1px solid var(--card-border)' }}>
+        <motion.button whileTap={{ scale: 0.85 }} onClick={goHome}
+          className="w-9 h-9 flex items-center justify-center rounded-full"
+          style={{ background: 'var(--primary-light)' }}>
+          <svg className="w-5 h-5" style={{ color: 'var(--primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </motion.button>
-        <div className="text-sm font-bold text-text-primary">
-          {t('mashq')} — {practiceIndex + 1} / {practiceCards.length}
+        <div className="text-sm font-bold" style={{ color: 'var(--text-1)' }}>
+          {t('mashq')} — {practiceIndex + 1}/{practiceCards.length}
         </div>
         <div className="w-9" />
       </div>
 
       {/* Progress */}
       <div className="px-4 pt-3">
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-primary rounded-full"
-            animate={{ width: `${((practiceIndex + 1) / practiceCards.length) * 100}%` }}
-            transition={{ duration: 0.3 }}
-          />
+        <div className="progress-track">
+          <motion.div className="progress-fill" animate={{ width: `${((practiceIndex + 1) / practiceCards.length) * 100}%` }} transition={{ duration: 0.3 }} />
         </div>
       </div>
 
-      {/* Swipe indicators */}
+      {/* Swipe labels */}
       <div className="flex justify-between px-8 pt-3">
-        <div className="flex items-center gap-1 text-wrong text-xs font-medium opacity-60">
+        <div className="flex items-center gap-1 text-xs font-medium opacity-60" style={{ color: 'var(--red)' }}>
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           {t('bilmayman')}
         </div>
-        <div className="flex items-center gap-1 text-correct text-xs font-medium opacity-60">
+        <div className="flex items-center gap-1 text-xs font-medium opacity-60" style={{ color: 'var(--green)' }}>
           {t('bilaman')}
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -140,54 +114,44 @@ export default function FlipCard() {
         </div>
       </div>
 
-      {/* Card area */}
+      {/* Card */}
       <div className="flex-1 flex items-center justify-center px-4 py-4">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={practiceIndex}
-            style={{ x, rotate, opacity }}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.7}
+          <motion.div key={practiceIndex}
+            style={{ x, rotate, opacity }} drag="x"
+            dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7}
             onDragEnd={handleDragEnd}
             initial={{ scale: 0.9, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{
-              x: exitDirection * 300,
-              opacity: 0,
-              scale: 0.8,
-              transition: { duration: 0.3 }
-            }}
+            exit={{ x: exitDirection * 300, opacity: 0, scale: 0.8, transition: { duration: 0.3 } }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="w-full cursor-grab active:cursor-grabbing"
-            onClick={handleFlip}
-          >
+            className="w-full cursor-grab active:cursor-grabbing" onClick={handleFlip}>
+
             <div className="relative w-full" style={{ minHeight: '320px', perspective: '1200px' }}>
               <div className={`flip-card-inner ${isFlipped ? 'flipped' : ''}`} style={{ minHeight: '320px' }}>
-                {/* Front - Question */}
-                <div className="flip-card-front bg-white shadow-card p-6 flex flex-col">
+                {/* Front */}
+                <div className="flip-card-front p-6 flex flex-col"
+                  style={{ background: 'var(--card)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-md)' }}>
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-bold text-primary">?</span>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ background: 'var(--primary-light)' }}>
+                      <span className="text-sm font-bold" style={{ color: 'var(--primary)' }}>?</span>
                     </div>
-                    <span className="text-xs text-text-secondary font-medium">{t('savol')}</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-2)' }}>{t('savol')}</span>
                     <div className="flex-1" />
-                    <span className="text-[10px] text-text-tertiary">Tap to flip</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>Tap to flip</span>
                   </div>
-
                   {card.image && (
-                    <div className="rounded-xl overflow-hidden mb-3 shadow-sm">
+                    <div className="rounded-xl overflow-hidden mb-3" style={{ boxShadow: 'var(--shadow-sm)' }}>
                       <img src={card.image} alt="" className="w-full h-auto" />
                     </div>
                   )}
-
-                  <p className="text-[15px] font-semibold text-text-primary leading-relaxed flex-1">
-                    {questionText}
-                  </p>
+                  <p className="text-[15px] font-semibold leading-relaxed flex-1" style={{ color: 'var(--text-1)' }}>{questionText}</p>
                 </div>
 
-                {/* Back - Answer */}
-                <div className="flip-card-back bg-gradient-to-br from-correct via-emerald-500 to-green-600 shadow-card p-6 flex flex-col text-white">
+                {/* Back */}
+                <div className="flip-card-back p-6 flex flex-col text-white"
+                  style={{ background: 'linear-gradient(135deg, #059669, #10B981, #34D399)', boxShadow: 'var(--shadow-md)' }}>
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -196,15 +160,9 @@ export default function FlipCard() {
                     </div>
                     <span className="text-xs text-white/80 font-medium">{t('togriJavob')}</span>
                   </div>
-
-                  <p className="text-lg font-bold leading-relaxed flex-1">
-                    {options[card.correct_index]}
-                  </p>
-
+                  <p className="text-lg font-bold leading-relaxed flex-1">{options[card.correct_index]}</p>
                   <div className="mt-4 pt-3 border-t border-white/20">
-                    <p className="text-sm text-white/80 leading-relaxed">
-                      {explanationText}
-                    </p>
+                    <p className="text-sm text-white/80 leading-relaxed">{explanationText}</p>
                   </div>
                 </div>
               </div>
@@ -216,21 +174,17 @@ export default function FlipCard() {
       {/* Action buttons */}
       <div className="px-4 py-4 safe-area-bottom">
         <div className="flex gap-3">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleAction(false)}
-            className="flex-1 py-3.5 bg-wrong/10 text-wrong font-bold text-sm rounded-btn border-2 border-wrong/20 flex items-center justify-center gap-2"
-          >
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleAction(false)}
+            className="flex-1 py-3.5 font-bold text-sm rounded-xl border-2 flex items-center justify-center gap-2"
+            style={{ background: 'var(--red-bg)', borderColor: 'var(--red-border)', color: 'var(--red)' }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
             {t('bilmayman')}
           </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleAction(true)}
-            className="flex-1 py-3.5 bg-correct/10 text-correct font-bold text-sm rounded-btn border-2 border-correct/20 flex items-center justify-center gap-2"
-          >
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleAction(true)}
+            className="flex-1 py-3.5 font-bold text-sm rounded-xl border-2 flex items-center justify-center gap-2"
+            style={{ background: 'var(--green-bg)', borderColor: 'var(--green-border)', color: 'var(--green)' }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
