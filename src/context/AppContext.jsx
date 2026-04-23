@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { loadQuestions } from '../data/questions';
+import { processQuestions, getStoredQuestions, storeQuestions, clearStoredQuestions } from '../data/questions';
 import { translations } from '../data/translations';
 
 const AppContext = createContext();
@@ -9,13 +9,9 @@ const THEME_KEY = 'pdd_theme';
 const LANG_KEY = 'pdd_lang';
 const USER_KEY = 'pdd_user_id';
 
-// ====== HELPERS ======
 function getUserId() {
   let uid = localStorage.getItem(USER_KEY);
-  if (!uid) {
-    uid = 'u_' + crypto.randomUUID();
-    localStorage.setItem(USER_KEY, uid);
-  }
+  if (!uid) { uid = 'u_' + crypto.randomUUID(); localStorage.setItem(USER_KEY, uid); }
   return uid;
 }
 
@@ -29,9 +25,9 @@ function getStoredProgress() {
 
 function defaultProgress() {
   return {
-    biletAnswers: {},     // { biletIndex: { qId: { selected, correct } } }
-    biletResults: {},     // { biletIndex: { status, score, total, date } }
-    biletScores: {},      // { biletIndex: { correct, wrong, total } }
+    biletAnswers: {},
+    biletResults: {},
+    biletScores: {},
     currentBilet: -1,
     currentQuestion: 0,
     examHistory: [],
@@ -41,27 +37,18 @@ function defaultProgress() {
 }
 
 function saveProgressLocal(progress) {
-  try {
-    progress.updatedAt = Date.now();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch (e) { console.error('Progress save fail:', e); }
+  try { progress.updatedAt = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); }
+  catch (e) { console.error('Progress save fail:', e); }
 }
 
-// ====== SERVER SYNC ======
 let syncTimer = null;
-
 async function pushToServer(progress) {
   if (!navigator.onLine) return;
   try {
     const uid = getUserId();
-    await fetch(`/api/progress/${uid}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(progress),
-    });
-  } catch (e) { /* offline - silent */ }
+    await fetch(`/api/progress/${uid}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(progress) });
+  } catch (e) { /* silent */ }
 }
-
 async function pullFromServer() {
   if (!navigator.onLine) return null;
   try {
@@ -72,40 +59,27 @@ async function pullFromServer() {
     return json.exists ? json.data : null;
   } catch (e) { return null; }
 }
-
 function mergeProgress(local, server) {
   if (!local && !server) return defaultProgress();
   if (!local) return server;
   if (!server) return local;
   const base = (server.updatedAt || 0) > (local.updatedAt || 0) ? { ...server } : { ...local };
   const other = base === local ? server : local;
-  // Merge biletAnswers
   if (other.biletAnswers) {
     if (!base.biletAnswers) base.biletAnswers = {};
     for (const key of Object.keys(other.biletAnswers)) {
-      if (!base.biletAnswers[key]) {
-        base.biletAnswers[key] = other.biletAnswers[key];
-      } else {
-        for (const qId of Object.keys(other.biletAnswers[key])) {
-          if (!base.biletAnswers[key][qId]) {
-            base.biletAnswers[key][qId] = other.biletAnswers[key][qId];
-          }
-        }
-      }
+      if (!base.biletAnswers[key]) { base.biletAnswers[key] = other.biletAnswers[key]; }
+      else { for (const qId of Object.keys(other.biletAnswers[key])) { if (!base.biletAnswers[key][qId]) base.biletAnswers[key][qId] = other.biletAnswers[key][qId]; } }
     }
   }
-  // Merge exam history
   if (other.examHistory?.length) {
     if (!base.examHistory) base.examHistory = [];
     const existing = new Set(base.examHistory.map(e => e.startedAt));
-    for (const exam of other.examHistory) {
-      if (!existing.has(exam.startedAt)) base.examHistory.push(exam);
-    }
+    for (const exam of other.examHistory) { if (!existing.has(exam.startedAt)) base.examHistory.push(exam); }
   }
   base.updatedAt = Date.now();
   return base;
 }
-
 function schedulePush(progress) {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => pushToServer(progress), 2000);
@@ -123,26 +97,26 @@ export function AppProvider({ children }) {
   const [answers, setAnswers] = useState([]);
   const [progress, setProgress] = useState(getStoredProgress);
   const [loading, setLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
 
-  // Exam state
   const [examState, setExamState] = useState(null);
   const examTimerRef = useRef(null);
 
-  // Translation
-  const t = useCallback((key) => {
-    return translations[lang]?.[key] || translations['uz']?.[key] || key;
-  }, [lang]);
+  const t = useCallback((key) => translations[lang]?.[key] || translations['uz']?.[key] || key, [lang]);
 
-  // ====== INIT ======
+  // ====== INIT: restore previously uploaded data ======
   useEffect(() => {
-    (async () => {
-      const data = await loadQuestions();
-      setBilets(data);
-      const all = data.flatMap(b => b.questions);
-      setAllQuestions(all);
-      setLoading(false);
+    const stored = getStoredQuestions();
+    if (stored) {
+      const bils = processQuestions(stored);
+      setBilets(bils);
+      setAllQuestions(bils.flatMap(b => b.questions));
+      setHasData(true);
+    }
+    setLoading(false);
 
-      // Server sync
+    // Server sync
+    (async () => {
       try {
         const serverData = await pullFromServer();
         if (serverData) {
@@ -153,14 +127,52 @@ export function AppProvider({ children }) {
           });
         }
       } catch (e) { /* silent */ }
-
-      // Restore active exam
-      const prog = getStoredProgress();
-      if (prog.activeExam) {
-        setExamState(prog.activeExam);
-        setScreen('exam');
-      }
     })();
+
+    // Restore active exam
+    const prog = getStoredProgress();
+    if (prog.activeExam) { setExamState(prog.activeExam); setScreen('exam'); }
+  }, []);
+
+  // ====== FILE UPLOAD ======
+  const handleFileUpload = useCallback((file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const rawData = JSON.parse(e.target.result);
+          if (!Array.isArray(rawData) || rawData.length === 0) {
+            reject(new Error('Invalid data format'));
+            return;
+          }
+          storeQuestions(rawData);
+          const bils = processQuestions(rawData);
+          setBilets(bils);
+          setAllQuestions(bils.flatMap(b => b.questions));
+          setHasData(true);
+          // Reset progress for new data
+          const fresh = defaultProgress();
+          setProgress(fresh);
+          saveProgressLocal(fresh);
+          resolve(bils.length);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('File read error'));
+      reader.readAsText(file);
+    });
+  }, []);
+
+  const clearData = useCallback(() => {
+    clearStoredQuestions();
+    setBilets([]);
+    setAllQuestions([]);
+    setHasData(false);
+    const fresh = defaultProgress();
+    setProgress(fresh);
+    saveProgressLocal(fresh);
+    setScreen('home');
   }, []);
 
   // ====== SAVE PROGRESS ======
@@ -173,98 +185,51 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const html = document.documentElement;
     html.classList.remove('dark', 'light');
-    if (theme === 'dark') {
-      html.classList.add('dark');
-    } else if (theme === 'auto') {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        html.classList.add('dark');
-      }
-    }
+    if (theme === 'dark') html.classList.add('dark');
+    else if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) html.classList.add('dark');
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const setTheme = useCallback((t) => setThemeState(t), []);
   const cycleTheme = useCallback(() => {
     setThemeState(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'auto' : 'light');
   }, []);
 
   // ====== LANGUAGE ======
   const toggleLang = useCallback(() => {
-    setLang(prev => {
-      const next = prev === 'uz' ? 'kr' : prev === 'kr' ? 'ru' : 'uz';
-      localStorage.setItem(LANG_KEY, next);
-      return next;
-    });
+    setLang(prev => { const next = prev === 'uz' ? 'kr' : prev === 'kr' ? 'ru' : 'uz'; localStorage.setItem(LANG_KEY, next); return next; });
   }, []);
 
   // ====== NAVIGATION ======
   const navigateTo = useCallback((s) => setScreen(s), []);
-  const goHome = useCallback(() => {
-    setScreen('home');
-    setSelectedBilet(null);
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-  }, []);
+  const goHome = useCallback(() => { setScreen('home'); setSelectedBilet(null); setCurrentQuestionIndex(0); setAnswers([]); }, []);
 
   // ====== BILET EXAM ======
   const startExam = useCallback((biletNumber) => {
-    setSelectedBilet(biletNumber);
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-    setScreen('question');
+    setSelectedBilet(biletNumber); setCurrentQuestionIndex(0); setAnswers([]); setScreen('question');
   }, []);
 
   const answerQuestion = useCallback((questionId, selectedIndex, isCorrect) => {
     setAnswers(prev => [...prev, { questionId, selectedIndex, correct: isCorrect }]);
-
-    // Save to bilet progress
     if (selectedBilet !== null) {
       setProgress(prev => {
         const biletKey = String(selectedBilet);
         const newBiletAnswers = { ...prev.biletAnswers };
         if (!newBiletAnswers[biletKey]) newBiletAnswers[biletKey] = {};
         newBiletAnswers[biletKey][String(questionId)] = { selected: selectedIndex, correct: isCorrect };
-        return {
-          ...prev,
-          biletAnswers: newBiletAnswers,
-          currentBilet: selectedBilet,
-          currentQuestion: currentQuestionIndex,
-        };
+        return { ...prev, biletAnswers: newBiletAnswers, currentBilet: selectedBilet, currentQuestion: currentQuestionIndex };
       });
     }
   }, [selectedBilet, currentQuestionIndex]);
-
-  const nextQuestion = useCallback(() => {
-    const bilet = bilets.find(b => b.number === selectedBilet);
-    if (!bilet) return;
-    if (currentQuestionIndex < bilet.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-      finishExam();
-    }
-  }, [currentQuestionIndex, bilets, selectedBilet]);
 
   const finishExam = useCallback(() => {
     const correctCount = answers.filter(a => a.correct).length;
     const bilet = bilets.find(b => b.number === selectedBilet);
     const totalQuestions = bilet ? bilet.questions.length : 20;
     const passed = correctCount >= 18;
-
     setProgress(prev => ({
       ...prev,
-      biletResults: {
-        ...prev.biletResults,
-        [selectedBilet]: {
-          status: passed ? 'passed' : 'failed',
-          score: correctCount,
-          total: totalQuestions,
-          date: new Date().toISOString(),
-        }
-      },
-      biletScores: {
-        ...prev.biletScores,
-        [selectedBilet]: { correct: correctCount, wrong: totalQuestions - correctCount, total: totalQuestions }
-      },
+      biletResults: { ...prev.biletResults, [selectedBilet]: { status: passed ? 'passed' : 'failed', score: correctCount, total: totalQuestions, date: new Date().toISOString() } },
+      biletScores: { ...prev.biletScores, [selectedBilet]: { correct: correctCount, wrong: totalQuestions - correctCount, total: totalQuestions } },
     }));
     setScreen('result');
   }, [answers, bilets, selectedBilet]);
@@ -274,14 +239,7 @@ export function AppProvider({ children }) {
     if (allQuestions.length < 20) return;
     const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, 20);
-    const exam = {
-      questions: selected,
-      answers: {},
-      timeRemaining: 25 * 60,
-      startedAt: Date.now(),
-      currentQuestion: 0,
-      finished: false,
-    };
+    const exam = { questions: selected, answers: {}, timeRemaining: 25 * 60, startedAt: Date.now(), currentQuestion: 0, finished: false };
     setExamState(exam);
     setProgress(prev => ({ ...prev, activeExam: exam }));
     setScreen('exam');
@@ -290,10 +248,7 @@ export function AppProvider({ children }) {
   const answerExamQuestion = useCallback((qId, selectedIdx, isCorrect) => {
     setExamState(prev => {
       if (!prev || prev.finished) return prev;
-      const updated = {
-        ...prev,
-        answers: { ...prev.answers, [qId]: { selected: selectedIdx, correct: isCorrect } },
-      };
+      const updated = { ...prev, answers: { ...prev.answers, [qId]: { selected: selectedIdx, correct: isCorrect } } };
       setProgress(p => ({ ...p, activeExam: updated }));
       return updated;
     });
@@ -307,18 +262,11 @@ export function AppProvider({ children }) {
       const answered = Object.keys(prev.answers).length;
       const correct = Object.values(prev.answers).filter(a => a.correct).length;
       const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
-      const finished = { ...prev, finished: true, finishedAt: Date.now() };
-
       setProgress(p => ({
-        ...p,
-        activeExam: null,
-        examHistory: [...(p.examHistory || []), {
-          startedAt: prev.startedAt,
-          finishedAt: Date.now(),
-          correct, wrong: answered - correct, total, pct, timeUp,
-        }],
+        ...p, activeExam: null,
+        examHistory: [...(p.examHistory || []), { startedAt: prev.startedAt, finishedAt: Date.now(), correct, wrong: answered - correct, total, pct, timeUp }],
       }));
-      return finished;
+      return { ...prev, finished: true, finishedAt: Date.now() };
     });
   }, []);
 
@@ -336,38 +284,29 @@ export function AppProvider({ children }) {
 
   const startPractice = useCallback(() => {
     const shuffled = [...allQuestions].sort(() => Math.random() - 0.5).slice(0, 30);
-    setPracticeCards(shuffled);
-    setPracticeIndex(0);
-    setPracticeKnown([]);
-    setScreen('practice');
+    setPracticeCards(shuffled); setPracticeIndex(0); setPracticeKnown([]); setScreen('practice');
   }, [allQuestions]);
 
   // ====== RESET ======
   const resetProgress = useCallback(() => {
     const fresh = defaultProgress();
-    setProgress(fresh);
-    saveProgressLocal(fresh);
-    pushToServer(fresh);
+    setProgress(fresh); saveProgressLocal(fresh); pushToServer(fresh);
   }, []);
 
-  // ====== BILET STATUS HELPERS ======
+  // ====== HELPERS ======
   const getBiletStatus = useCallback((biletNum) => {
     const result = progress.biletResults?.[biletNum];
     const biletAnswers = progress.biletAnswers?.[String(biletNum)] || {};
     const answeredCount = Object.keys(biletAnswers).length;
     const bilet = bilets.find(b => b.number === biletNum);
     const total = bilet ? bilet.questions.length : 20;
-
     if (result) return { status: result.status, score: result.score, total: result.total || total, answeredCount };
     if (answeredCount > 0) return { status: 'in_progress', answeredCount, total };
     return { status: 'none', answeredCount: 0, total };
   }, [progress, bilets]);
 
   const getUnfinishedBilet = useCallback(() => {
-    for (const bilet of bilets) {
-      const s = getBiletStatus(bilet.number);
-      if (s.status === 'in_progress') return bilet.number;
-    }
+    for (const bilet of bilets) { const s = getBiletStatus(bilet.number); if (s.status === 'in_progress') return bilet.number; }
     return null;
   }, [bilets, getBiletStatus]);
 
@@ -379,10 +318,7 @@ export function AppProvider({ children }) {
       totalCorrect += Object.values(ba).filter(a => a.correct).length;
     }
     return {
-      totalQuestions: allQuestions.length,
-      totalAnswered,
-      totalCorrect,
-      totalWrong: totalAnswered - totalCorrect,
+      totalQuestions: allQuestions.length, totalAnswered, totalCorrect, totalWrong: totalAnswered - totalCorrect,
       passedCount: Object.values(progress.biletResults || {}).filter(r => r.status === 'passed').length,
       failedCount: Object.values(progress.biletResults || {}).filter(r => r.status === 'failed').length,
     };
@@ -390,13 +326,13 @@ export function AppProvider({ children }) {
 
   const value = {
     screen, lang, theme, bilets, allQuestions, selectedBilet,
-    currentQuestionIndex, answers, progress, loading,
+    currentQuestionIndex, answers, progress, loading, hasData,
     examState, examTimerRef,
     practiceCards, practiceIndex, practiceKnown,
-    t, toggleLang, cycleTheme, setTheme,
-    navigateTo, goHome, startExam, answerQuestion, nextQuestion, finishExam,
+    t, toggleLang, cycleTheme,
+    navigateTo, goHome, startExam, answerQuestion, finishExam,
     startTimedExam, answerExamQuestion, finishTimedExam, cancelExam,
-    startPractice, resetProgress,
+    startPractice, resetProgress, handleFileUpload, clearData,
     getBiletStatus, getUnfinishedBilet, getOverallStats,
     setCurrentQuestionIndex, setAnswers,
     setPracticeIndex, setPracticeKnown, setExamState,
