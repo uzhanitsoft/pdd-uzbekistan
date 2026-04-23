@@ -213,9 +213,9 @@ export default function ExamScreen() {
               </div>
             )}
 
-            <p className="text-sm font-bold mb-2" style={{ color: 'var(--text-1)', lineHeight: 1.4 }}>{questionText}</p>
+            <p className="font-bold mb-3" style={{ color: 'var(--text-1)', fontSize: '15px', lineHeight: 1.45 }}>{questionText}</p>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {(options || []).map((option, index) => {
                 let className = 'answer-option-compact';
                 if (ans) {
@@ -234,7 +234,7 @@ export default function ExamScreen() {
                     onClick={() => handleAnswer(index)} disabled={!!ans}
                     className={className}>
                     <div className="letter-sm">{labels[index]}</div>
-                    <span className="flex-1 text-xs font-medium" style={{ lineHeight: 1.3 }}>{option}</span>
+                    <span className="flex-1 text-sm font-medium" style={{ lineHeight: 1.4 }}>{option}</span>
                     {ans && index === question.correct_index && (
                       <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                     )}
@@ -250,8 +250,8 @@ export default function ExamScreen() {
       </div>
 
       {/* Bottom Nav — with safe area */}
-      <div className="px-3 py-2" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        <div className="flex items-center justify-between gap-2">
+      <div className="px-4 py-3" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-center justify-between gap-3">
           <button onClick={() => qi > 0 && goToQ(qi - 1)} disabled={qi === 0}
             className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold"
             style={{ background: 'var(--bg)', border: '1px solid var(--card-border)', color: qi > 0 ? 'var(--text-2)' : 'var(--text-3)', opacity: qi > 0 ? 1 : 0.4 }}>
