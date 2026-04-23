@@ -163,49 +163,44 @@ export default function QuestionScreen() {
               })}
             </div>
 
-            {/* Spacer for bottom nav */}
-            <div style={{ height: '16px' }} />
+            {/* ====== NAV — javoblardan pastda ====== */}
+            <div className="flex items-center gap-3 mt-5 mb-4">
+              {/* OLDINGI — chap */}
+              <button onClick={() => { if (currentQuestionIndex > 0) { if (autoNextRef.current) clearTimeout(autoNextRef.current); setCurrentQuestionIndex(prev => prev - 1); } }}
+                disabled={currentQuestionIndex === 0}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-opacity"
+                style={{ background: 'var(--card)', border: '1px solid var(--card-border)', color: currentQuestionIndex > 0 ? 'var(--text-1)' : 'var(--text-3)', opacity: currentQuestionIndex > 0 ? 1 : 0.4 }}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
+                </svg>
+                {t('oldingi')}
+              </button>
+
+              {/* Hisoblagich */}
+              <div className="text-sm font-bold px-2" style={{ color: 'var(--text-2)' }}>
+                {answers.length}/{totalQuestions}
+              </div>
+
+              {/* KEYINGI — o'ng */}
+              {!isLastQuestion ? (
+                <button onClick={() => { if (autoNextRef.current) clearTimeout(autoNextRef.current); setCurrentQuestionIndex(prev => prev + 1); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
+                  style={{ background: 'var(--primary)', color: '#fff' }}>
+                  {t('keyingi')}
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              ) : (
+                <button onClick={finishExam}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
+                  style={{ background: 'var(--green)', color: '#fff' }}>
+                  {t('yakunlash')} ✓
+                </button>
+              )}
+            </div>
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      {/* ====== BOTTOM NAV — Oldingi CHAP | Keyingi O'NG ====== */}
-      <div className="px-4 py-3 safe-area-bottom" style={{ background: 'var(--card)', borderTop: '1px solid var(--card-border)' }}>
-        <div className="flex items-center gap-3">
-          {/* OLDINGI — chap tomonda */}
-          <button onClick={() => { if (currentQuestionIndex > 0) { if (autoNextRef.current) clearTimeout(autoNextRef.current); setCurrentQuestionIndex(prev => prev - 1); } }}
-            disabled={currentQuestionIndex === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-opacity"
-            style={{ background: 'var(--bg)', border: '1px solid var(--card-border)', color: currentQuestionIndex > 0 ? 'var(--text-1)' : 'var(--text-3)', opacity: currentQuestionIndex > 0 ? 1 : 0.4 }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
-            </svg>
-            {t('oldingi')}
-          </button>
-
-          {/* Hisoblagich */}
-          <div className="text-sm font-bold px-2" style={{ color: 'var(--text-2)' }}>
-            {answers.length}/{totalQuestions}
-          </div>
-
-          {/* KEYINGI — o'ng tomonda */}
-          {!isLastQuestion ? (
-            <button onClick={() => { if (autoNextRef.current) clearTimeout(autoNextRef.current); setCurrentQuestionIndex(prev => prev + 1); }}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-              style={{ background: 'var(--primary)', color: '#fff' }}>
-              {t('keyingi')}
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
-            </button>
-          ) : (
-            <button onClick={finishExam}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-              style={{ background: 'var(--green)', color: '#fff' }}>
-              {t('yakunlash')} ✓
-            </button>
-          )}
-        </div>
       </div>
 
       {/* ====== IMAGE ZOOM MODAL ====== */}
