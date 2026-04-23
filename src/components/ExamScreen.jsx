@@ -60,15 +60,18 @@ export default function ExamScreen() {
     const isCorrect = index === question.correct_index;
     answerExamQuestion(question.id, index, isCorrect);
 
-    const delay = isCorrect ? 1000 : 1500;
-    autoNextRef.current = setTimeout(() => {
-      const newAnswered = answeredCount + 1;
-      if (newAnswered >= total) {
-        finishTimedExam(false);
-      } else if (qi < total - 1) {
-        goToQ(qi + 1);
-      }
-    }, delay);
+    // To'g'ri javob → 1s keyin avtomatik keyingisiga
+    if (isCorrect) {
+      autoNextRef.current = setTimeout(() => {
+        const newAnswered = answeredCount + 1;
+        if (newAnswered >= total) {
+          finishTimedExam(false);
+        } else if (qi < total - 1) {
+          goToQ(qi + 1);
+        }
+      }, 1000);
+    }
+    // Noto'g'ri javob → foydalanuvchi o'zi tugma bosadi
   };
 
   const handleDragEnd = useCallback((e, info) => {
@@ -234,6 +237,42 @@ export default function ExamScreen() {
                 );
               })}
             </div>
+
+            {/* Oldingi/Keyingi — faqat noto'g'ri javobdan keyin */}
+            {ans && !ans.correct && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex items-center justify-between mt-4 gap-3">
+                {qi > 0 ? (
+                  <button onClick={() => goToQ(qi - 1)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold"
+                    style={{ background: 'var(--card)', border: '1px solid var(--card-border)', color: 'var(--text-2)' }}>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    {t('oldingi')}
+                  </button>
+                ) : <div />}
+                {qi < total - 1 ? (
+                  <button onClick={() => goToQ(qi + 1)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold"
+                    style={{ background: 'var(--primary)', color: '#fff' }}>
+                    {t('keyingi')}
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <button onClick={() => finishTimedExam(false)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold"
+                    style={{ background: 'var(--green)', color: '#fff' }}>
+                    {t('yakunlash')}
+                  </button>
+                )}
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

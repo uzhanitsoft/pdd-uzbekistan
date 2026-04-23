@@ -90,6 +90,9 @@ export const translations = {
     qoronghu: "Qorong'u",
     avto: "Avto",
     keyinrogDavom: "Keyinroq davom ettirish",
+    oldingi: "Oldingi",
+    keyingi: "Keyingi",
+    yakunlash: "Yakunlash",
 
     // Fayl yuklash
     faylYuklash: "Test bazasini yuklang",
@@ -195,6 +198,9 @@ export const translations = {
     qoronghu: "Тёмная",
     avto: "Авто",
     keyinrogDavom: "Продолжить позже",
+    oldingi: "Назад",
+    keyingi: "Далее",
+    yakunlash: "Завершить",
     // Загрузка файла
     faylYuklash: "Загрузите базу тестов",
     faylYuklashDesc: "Выберите JSON файл с вопросами",
@@ -299,6 +305,9 @@ export const translations = {
     qoronghu: "Қоронғу",
     avto: "Авто",
     keyinrogDavom: "Кейинроқ давом эттириш",
+    oldingi: "Олдинги",
+    keyingi: "Кейинги",
+    yakunlash: "Якунлаш",
     // Файл юклаш
     faylYuklash: "Тест базасини юкланг",
     faylYuklashDesc: "JSON форматидаги саволлар файлини танланг",
